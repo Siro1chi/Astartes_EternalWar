@@ -395,12 +395,10 @@ export class Weapon {
         const data = this.data;
         const L = Math.min(this.level - 1, 6);
         const levels = data.levels;
-        const dmgMult = levels.sDmg ? levels.sDmg[L] : 1;
+        const levelDmgMult = levels.sDmg ? levels.sDmg[L] : 1;
         const r = (data.radius || 100) * player.areaMult * (levels.sRad ? levels.sRad[L] : 1);
-        // Урон в секунду
-        const dps = data.baseDmg * player.dmgMult;
-        // Урон за кадр (при 60 FPS)
-        const dmgPerFrame = dps * dt;
+        // Урон за тик = базовый урон × множитель уровня × множитель игрока × (1 + 0.3 за уровень оружия)
+        const tickDamage = data.baseDmg * levelDmgMult * player.dmgMult * (1 + L * 0.3);
         const push = levels.sPush ? levels.sPush[L] : 0;
         const frameCount = window.gameManager?.frameCount || 0;
 
@@ -408,7 +406,7 @@ export class Weapon {
             if (distSq(player.x, player.y, e.x, e.y) < r * r) {
                 // Кулдаун на урон (каждые 0.3 сек = ~18 кадров при 60 FPS)
                 if (!e.lastHitTime || frameCount - e.lastHitTime > 18) {
-                    e.takeDamage(dmgPerFrame * 18, player);
+                    e.takeDamage(tickDamage, player);
                     e.lastHitTime = frameCount;
 
                     // Визуализация попадания

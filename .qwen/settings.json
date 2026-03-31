@@ -6,7 +6,8 @@
       "Bash(python *)",
       "Bash(start *)",
       "Bash(taskkill *)",
-      "Bash(start-sleep *)"
+      "Bash(start-sleep *)",
+      "Bash(npx *)"
     ]
   },
   "$version": 3
