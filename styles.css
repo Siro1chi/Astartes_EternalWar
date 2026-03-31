@@ -313,7 +313,7 @@ h2 {
     border-radius: 50%;
     left: 50px;
     top: 50px;
-    transition: transform 0.05s;
+    pointer-events: none;
 }
 
 #ult-button {
@@ -331,10 +331,24 @@ h2 {
     font-size: 24px;
     color: #fff;
     cursor: pointer;
+    transition: all 0.2s;
 }
 
 #ult-button:active {
     background: rgba(0, 204, 255, 0.6);
+    transform: scale(0.95);
+}
+
+#ult-button.ready {
+    background: rgba(0, 255, 136, 0.6);
+    border-color: #00ff88;
+    box-shadow: 0 0 20px rgba(0, 255, 136, 0.5);
+    animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
 }
 
 /* Show on mobile */

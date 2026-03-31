@@ -162,8 +162,11 @@ export class InputHandler {
             dy = this.joystick.dy;
         }
 
-        // Нормализация диагонального движения
-        if (dx !== 0 || dy !== 0) {
+        // Нормализация диагонального движения (только для клавиатуры)
+        const fromKeyboard = (this.isPressed('KeyW') || this.isPressed('KeyS') || 
+                              this.isPressed('KeyA') || this.isPressed('KeyD'));
+        
+        if (!this.joystick.active && fromKeyboard && (dx !== 0 || dy !== 0)) {
             const len = Math.sqrt(dx * dx + dy * dy);
             if (len > 0) {
                 dx /= len;

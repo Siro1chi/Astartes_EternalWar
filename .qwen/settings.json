@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir *)",
+      "Bash(del *)",
+      "Bash(python *)",
+      "Bash(start *)",
+      "Bash(taskkill *)",
+      "Bash(start-sleep *)"
+    ]
+  },
+  "$version": 3
+}

@@ -751,18 +751,30 @@ export class GameManager {
 
     updateUI() {
         if (!this.player) return;
-        
+
         document.getElementById('time-display').textContent = formatTime(this.gameTime);
         document.getElementById('kill-display').textContent = this.kills;
-        
+
         const hpP = this.player.getHealthPercent() * 100;
         document.getElementById('health-fill').style.width = `${hpP}%`;
-        
+
         const xpP = this.player.getXPPercent() * 100;
         document.getElementById('xp-fill').style.width = `${xpP}%`;
         document.getElementById('level-display').textContent = `Ранг ${this.player.level}`;
-        
+
         document.getElementById('ult-fill').style.width = `${this.ultCharge}%`;
+        
+        // Визуальный индикатор готовой ульты
+        const ultBtn = document.getElementById('ult-button');
+        if (ultBtn) {
+            if (this.ultCharge >= 100) {
+                ultBtn.classList.add('ready');
+                ultBtn.innerText = '⚡';
+            } else {
+                ultBtn.classList.remove('ready');
+                ultBtn.innerText = '';
+            }
+        }
     }
 
     addKillFeed(enemyType) {
