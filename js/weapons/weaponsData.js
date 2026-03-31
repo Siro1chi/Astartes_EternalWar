@@ -213,7 +213,7 @@ export const WEAPONS_DATA = {
         icon: "🔥",
         color: "#ff5500",
         baseCd: 0.5,
-        baseDmg: 5,
+        baseDmg: 12,
         type: 'aura',
         radius: 100,
         desc: "Зона урона.",
