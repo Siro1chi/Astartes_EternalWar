@@ -397,22 +397,23 @@ export class Weapon {
         const levels = data.levels;
         const dmgMult = levels.sDmg ? levels.sDmg[L] : 1;
         const r = (data.radius || 100) * player.areaMult * (levels.sRad ? levels.sRad[L] : 1);
-        // Урон в секунду, умноженный на dt
-        const dps = data.baseDmg * player.dmgMult * dmgMult * (this.level >= 5 ? 2 : 1);
-        const dmg = dps * dt;
+        // Урон в секунду
+        const dps = data.baseDmg * player.dmgMult * dmgMult;
+        // Урон за кадр (при 60 FPS)
+        const dmgPerFrame = dps * dt;
         const push = levels.sPush ? levels.sPush[L] : 0;
         const frameCount = window.gameManager?.frameCount || 0;
 
         enemies.forEach(e => {
             if (distSq(player.x, player.y, e.x, e.y) < r * r) {
-                // Кулдаун на урон (каждые 0.5 сек = 10 кадров при 20 FPS)
-                if (!e.lastHitTime || frameCount - e.lastHitTime > 10) {
-                    e.takeDamage(dmg * 100, player); // Умножаем на 100 для компенсации редких тиков
+                // Кулдаун на урон (каждые 0.3 сек = ~18 кадров при 60 FPS)
+                if (!e.lastHitTime || frameCount - e.lastHitTime > 18) {
+                    e.takeDamage(dmgPerFrame * 18, player);
                     e.lastHitTime = frameCount;
-                    
+
                     // Визуализация попадания
-                    window.gameManager?.spawnParticles(e.x, e.y, data.color, 3);
-                    
+                    window.gameManager?.spawnParticles(e.x, e.y, data.color, 2);
+
                     if (push > 0) {
                         const angle = Math.atan2(e.y - player.y, e.x - player.x);
                         e.x += Math.cos(angle) * push * dt;
@@ -433,7 +434,8 @@ export class Weapon {
         const count = (levels.sCnt[L] || data.baseCount || 1);
         const r = (data.radius || 80) * player.areaMult * (levels.sRad ? levels.sRad[L] : 1);
         const spd = (levels.sSpd ? levels.sSpd[L] : 1) * (this.level >= 5 ? 1.5 : 1);
-        const dmg = data.baseDmg * player.dmgMult * 0.03 * 10; // Урон в кадр, но с ограничением
+        // Базовый урон за тик (сбалансированный)
+        const dmgPerTick = data.baseDmg * player.dmgMult * 0.5;
 
         for (let i = 0; i < count; i++) {
             const angle = (frameCount * 0.05 * spd) + (i * Math.PI * 2 / count);
@@ -441,10 +443,10 @@ export class Weapon {
             const oy = player.y + Math.sin(angle) * r;
 
             enemies.forEach(e => {
-                // Проверка кулдауна на урон (чтобы не бить каждый кадр)
-                if (!e.lastHitTime || frameCount - e.lastHitTime > 10) {
+                // Проверка кулдауна на урон (каждые 0.25 сек = ~15 кадров при 60 FPS)
+                if (!e.lastHitTime || frameCount - e.lastHitTime > 15) {
                     if (distSq(ox, oy, e.x, e.y) < 800) {
-                        e.takeDamage(dmg, player);
+                        e.takeDamage(dmgPerTick, player);
                         e.lastHitTime = frameCount;
                     }
                 }
