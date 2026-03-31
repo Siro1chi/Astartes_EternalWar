@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WH40K: ETERNAL WAR</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Teko:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="game-container">
+        <canvas id="bg-canvas"></canvas>
+        <canvas id="game-canvas"></canvas>
+
+        <div id="ui-overlay">
+            <div class="top-bar">
+                <div class="stat-box">
+                    <span class="stat-label">За Императора</span>
+                    <span class="stat-value" id="time-display">0:00</span>
+                </div>
+                <div class="stat-box">
+                    <span class="stat-label">Еретики Убиты</span>
+                    <span class="stat-value" id="kill-display">0</span>
+                </div>
+            </div>
+
+            <div class="bottom-bar">
+                <div class="bar">
+                    <div class="bar-text" id="level-display">Ранг 1</div>
+                    <div class="bar-fill xp" id="xp-fill"></div>
+                </div>
+                <div class="bar">
+                    <div class="bar-text">Ульта (Пробел)</div>
+                    <div class="bar-fill" id="ult-fill" style="background: #00ccff; width: 0%;"></div>
+                </div>
+                <div class="bar">
+                    <div class="bar-text">Доспех</div>
+                    <div class="bar-fill hp" id="health-fill"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="kill-feed"></div>
+
+        <!-- Start Screen -->
+        <div id="start-screen" class="screen-overlay active">
+            <h1>ASTARTES: ETERNAL WAR</h1>
+            <div style="color:#888; margin-bottom: 20px;">Выберите легион</div>
+            <div class="classes">
+                <div class="class-card" data-class="da">
+                    <img class="class-icon" src="img/Dark_Angel.webp" alt="Dark Angels" style="width: 80px; height: 64px;">
+                    <div class="class-name">Тёмные Ангелы</div>
+                    <div class="class-stat">I легион, Дробовик</div>
+                </div>
+                <div class="class-card" data-class="ws">
+                    <img class="class-icon" src="img/White_Scarm.webp" alt="White Scars" style="width: 80px; height: 64px;">
+                    <div class="class-name">Белые Шрамы</div>
+                    <div class="class-stat">V легион, Плазмаган</div>
+                </div>
+                <div class="class-card" data-class="sw">
+                    <img class="class-icon" src="img/Space_Wolf.webp" alt="Space Wolves" style="width: 80px; height: 64px;">
+                    <div class="class-name">Космические Волки</div>
+                    <div class="class-stat">VI легион, Молот</div>
+                </div>
+                <div class="class-card" data-class="term">
+                    <img class="class-icon" src="img/Imperial_Fist.webp" alt="Imperial Fists" style="width: 80px; height: 64px;">
+                    <div class="class-name">Имперские Кулаки</div>
+                    <div class="class-stat">VII легион, Щит</div>
+                </div>
+                <div class="class-card" data-class="ass">
+                    <img class="class-icon" src="img/Blood_Angel.webp" alt="Blood Angels" style="width: 80px; height: 64px;">
+                    <div class="class-name">Кровавые Ангелы</div>
+                    <div class="class-stat">IX легион, Меч</div>
+                </div>
+                <div class="class-card" data-class="tac">
+                    <img class="class-icon" src="img/Ultramarine.webp" alt="Ultramarines" style="width: 80px; height: 64px;">
+                    <div class="class-name">Ультрамарины</div>
+                    <div class="class-stat">XIII легион, Болтер</div>
+                </div>
+                <div class="class-card" data-class="ih">
+                    <img class="class-icon" src="img/Iron_Hand.webp" alt="Iron Hands" style="width: 80px; height: 64px;">
+                    <div class="class-name">Железные Руки</div>
+                    <div class="class-stat">X легион, Сервочерепа</div>
+                </div>
+                <div class="class-card" data-class="salamander">
+                    <img class="class-icon" src="img/Salamander.webp" alt="Salamanders" style="width: 80px; height: 64px;">
+                    <div class="class-name">Саламандры</div>
+                    <div class="class-stat">XVIII легион, Огнемет</div>
+                </div>
+                <div class="class-card" data-class="raven">
+                    <img class="class-icon" src="img/Raven_Guard.webp" alt="Raven Guard" style="width: 80px; height: 64px;">
+                    <div class="class-name">Гвардия Ворона</div>
+                    <div class="class-stat">XIX легион, Снайперка</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Upgrade Screen -->
+        <div id="upgrade-screen" class="screen-overlay">
+            <h2>ТЕХНОЛОГИЧЕСКИЙ ДАР МЕХАНИКУМ</h2>
+            <div id="upgrade-options" class="upgrades"></div>
+        </div>
+
+        <!-- Game Over Screen -->
+        <div id="game-over-screen" class="screen-overlay">
+            <h1 style="color: #990000;">АСТАРТЕС УНИЧТОЖЕН</h1>
+            <div class="game-over-stats">
+                Душа отправилась к Богу-Императору.<br>
+                Время служения: <span id="final-time">0:00</span> | 
+                Очищено еретиков: <span id="final-kills">0</span>
+            </div>
+            <button id="restart-btn">ВЫСЛАТЬ НОВУЮ КАПСУЛУ</button>
+        </div>
+
+        <!-- Pause Screen -->
+        <div id="pause-screen" class="screen-overlay">
+            <h1>ПАУЗА</h1>Ы
+            <div style="color:#888; margin-bottom: 20px;">Нажмите ESC для продолжения</div>
+            <button id="resume-btn">ПРОДОЛЖИТЬ</button>
+            <button id="quit-btn" style="margin-top: 10px;">ВЫЙТИ В МЕНЮ</button>
+        </div>
+
+        <!-- Mobile Controls -->
+        <div id="joystick-zone">
+            <div id="joystick-base"></div>
+            <div id="joystick-stick"></div>
+        </div>
+        <button id="ult-button">⚡</button>
+    </div>
+
+    <script type="module" src="js/main.js?v=2"></script>
+</body>
+</html>

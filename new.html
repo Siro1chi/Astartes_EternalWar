@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WH40K: ETERNAL WAR</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Teko:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body { margin: 0; background: #000; color: #ccc; font-family: 'Teko', sans-serif; overflow: hidden; display: flex; justify-content: center; align-items: center; height: 100vh; user-select: none; }
+        canvas { background: #050505; display: block; }
+        .ui { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+        .top-bar { display: flex; justify-content: space-between; padding: 10px; }
+        .stat-box { background: rgba(0,0,0,0.7); border: 1px solid #444; padding: 5px 15px; text-align: center; }
+        .stat-label { font-size: 12px; color: #888; text-transform: uppercase; display: block; }
+        .stat-value { font-size: 20px; color: #d4af37; font-family: 'Cinzel', serif; }
+        .bottom-bar { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); width: 300px; }
+        .bar { height: 14px; background: #111; border: 1px solid #333; margin-bottom: 4px; position: relative; }
+        .bar-fill { height: 100%; background: #900; width: 100%; transition: width 0.1s; } 
+        .bar-fill.xp { background: #d4af37; width: 0%; }
+        .bar-text { position: absolute; width: 100%; text-align: center; font-size: 11px; top: 0; color: #fff; line-height: 14px; }
+        .screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); display: none; flex-direction: column; justify-content: center; align-items: center; pointer-events: all; z-index: 10; }
+        .screen.active { display: flex; }
+        h1 { color: #d4af37; font-family: 'Cinzel', serif; margin-bottom: 20px; font-size: 36px; text-align: center; }
+        .classes { display: flex; gap: 15px; }
+        .cls { background: #111; border: 1px solid #333; padding: 15px; width: 160px; text-align: center; cursor: pointer; }
+        .cls:hover { border-color: #d4af37; }
+        .cls div { margin-top: 5px; color: #888; font-size: 14px; }
+        .cls b { color: #fff; font-size: 18px; display: block; }
+        .upgrades { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; max-width: 900px; padding: 0 10px; }
+        .upg { background: #111; border: 1px solid #333; padding: 15px; width: 250px; text-align: center; cursor: pointer; }
+        .upg:hover { border-color: #d4af37; }
+        .upg b { color: #fff; font-size: 16px; display: block; margin-bottom: 5px; }
+        .upg div { color: #888; font-size: 14px; line-height: 1.2; }
+        .btn { background: transparent; color: #d4af37; border: 2px solid #d4af37; padding: 10px 30px; font-family: 'Cinzel', serif; font-size: 18px; cursor: pointer; margin-top: 20px; }
+        .btn:hover { background: #d4af37; color: #000; }
+    </style>
+</head>
+<body>
+
+<div style="position: relative; width: 100vw; height: 100vh; max-width: 1200px; max-height: 800px;">
+    <canvas id="c"></canvas>
+    <div class="ui">
+        <div class="top-bar">
+            <div class="stat-box"><span class="stat-label">За Императора</span><span class="stat-value" id="ui-time">0:00</span></div>
+            <div class="stat-box"><span class="stat-label">Еретики Убиты</span><span class="stat-value" id="ui-kills">0</span></div>
+        </div>
+        <div class="bottom-bar">
+            <div class="bar"><div class="bar-text" id="ui-lvl">Ранг 1</div><div class="bar-fill xp" id="ui-xp"></div></div>
+            <div class="bar"><div class="bar-text">Экзоскелет Дредноута</div><div class="bar-fill" id="ui-hp"></div></div>
+        </div>
+    </div>
+
+    <div class="screen active" id="scr-menu">
+        <h1>АВАТАР МАШИНЫ СМЕРТИ</h1>
+        <div style="color:#888; margin-bottom: 20px;">Выберите шаблон нейро-подключения</div>
+        <div class="classes">
+            <div class="cls" onclick="startGame('tac')"><b>Ультрамаринский</b><div>Болтер, Баланс</div></div>
+            <div class="cls" onclick="startGame('ass')"><b>Кровавый Ангел</b><div>Меч, Ярость</div></div>
+            <div class="cls" onclick="startGame('term')"><b>Имперский Кулак</b><div>Щит, Непоколебимость</div></div>
+            <div class="cls" onclick="startGame('lib')"><b>Серый Рыцарь</b><div>Молния, Варп</div></div>
+        </div>
+    </div>
+
+    <div class="screen" id="scr-upg">
+        <h1 style="font-size: 28px;">ТЕХНОЛОГИЧЕСКИЙ ДАР МЕХАНИКУМА</h1>
+        <div class="upgrades" id="upg-list"></div>
+    </div>
+
+    <div class="screen" id="scr-dead">
+        <h1 style="color: #900;">ДРЕДНОУТ УНИЧТОЖЕН</h1>
+        <div style="color:#888; margin-bottom: 20px;">Душа отправилась к Богу-Императору.<br>Время служения: <span id="d-time" style="color:#fff">0:00</span> | Очищено еретиков: <span id="d-kills" style="color:#fff">0</span></div>
+        <button class="btn" onclick="showScreen('scr-menu')">ПЕРЕЗАГРУЗИТЬ СИСТЕМУ</button>
+    </div>
+</div>
+
+<script>
+const C = document.getElementById('c');
+const X = C.getContext('2d');
+let W, H;
+
+function resize() {
+    const p = C.parentElement;
+    W = C.width = p.clientWidth;
+    H = C.height = p.clientHeight;
+}
+window.onresize = resize;
+resize();
+
+// Массивы масштабирования: [Ур.1, Ур.2, ..., Ур.7]. Индекс = уровень - 1.
+const CLS = {
+    tac:  { hp: 100, spd: 200, w: 'bolter', dmg: 1, col: '#1e3a6e' },
+    ass:  { hp: 80,  spd: 260, w: 'sword',  dmg: 1.2, col: '#6e1e1e' },
+    term: { hp: 200, spd: 130, w: 'shield', dmg: 0.8, col: '#6e5e1e' },
+    lib:  { hp: 70,  spd: 210, w: 'smite',  dmg: 1.4, col: '#5e5e5e' }
+};
+
+const WEAP = {
+    bolter:  { n: 'Автоканон',     cd: 0.6, d: 10, t: 'aim',    c: '#ff0', spd: 300, sCnt: [1, 2, 2, 3, 3, 3, 5], sExpl: [0, 0, 0, 0, 30, 30, 30], sPierce: [0, 0, 0, 0, 0, 2, 5], desc: ["Одиночный выстрел.", "Стрельба парой болтов.", "Ускорение темпа стрельбы.", "Веер из 3 болтов.", "Взрывные болты (урон по площади).", "Пробитие на 2 цели.", "Шквал: 5 болтов с пробитием."] },
+    shotgun: { n: 'Дробовик',      cd: 1.0, d: 8,  t: 'spread', c: '#fa0', spd: 350, sCnt: [3, 5, 5, 7, 7, 7, 10], sPierce: [0, 0, 0, 0, 0, 1, 1], desc: ["3 дроби.", "5 дробин.", "Ускорение перезарядки.", "7 дробин.", "Зажигательные дроби.", "Дроби пробивают 1 цель.", "10 дробин с пробитием."] },
+    rocket:  { n: 'Циклич. Ракет.', cd: 2.5, d: 60, t: 'rocket', c: '#a00', spd: 250, sCnt: [1, 1, 1, 2, 2, 3, 3], sExpl: [40, 40, 70, 70, 100, 100, 150], sSpd: [0.6, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9], desc: ["Одна ракета.", "Увеличенная скорость.", "Увеличенный радиус взрыва.", "Две ракеты веером.", "Огромный взрыв.", "Три ракеты.", "Три ракеты с мощным взрывом."] },
+    gren:    { n: 'Мины-Ловушки',  cd: 2.0, d: 40, t: 'mine',   c: '#556b2f', sCnt: [1, 2, 2, 3, 3, 4, 5], sRad: [50, 50, 80, 80, 80, 80, 120], sDmg: [1, 1, 1, 1, 1.5, 1.5, 2], desc: ["1 мина ставится под ноги.", "2 мины.", "Увеличенный радиус.", "3 мины.", "Увеличенный урон.", "4 мины.", "5 мин с огромным радиусом и уроном."] },
+    bounce:  { n: 'Крозиус Аркит', cd: 1.5, d: 25, t: 'bounce', c: '#ffd700', spd: 400, sCnt: [1, 1, 2, 2, 2, 3, 3], sBounce: [3, 5, 5, 8, 8, 8, 10], desc: ["Отскакивает 3 раза.", "Отскакивает 5 раз.", "Два Крозиуса.", "Отскакивает 8 раз.", "Усиленный урон.", "Три Крозиуса.", "Мощный шторм из 3 крозиусов."] },
+    boom:    { n: 'Молот Грома',   cd: 2.0, d: 50, t: 'boom',   c: '#00f', r: 15, sCnt: [1, 2, 2, 2, 3, 3, 5], sExpl: [60, 60, 100, 100, 100, 150, 200], desc: ["Молот летит и возвращается.", "Два молота.", "Увеличенный взрыв.", "Быстрый возврат.", "Три молота.", "Огромный взрыв.", "Пять молотов очищают экран."] },
+    sword:   { n: 'Цепной Меч',    cd: 0,   d: 12, t: 'orbit',  c: '#aaa', r: 80, sCnt: [2, 3, 3, 4, 4, 5, 6], sRad: [1, 1, 1.3, 1.3, 1.3, 1.3, 1.5], sSpd: [1, 1, 1, 1, 1.5, 1.5, 1.5], desc: ["2 меча вращаются.", "3 меча.", "Увеличенный радиус.", "4 меча.", "Ускорение вращения.", "5 мечей.", "6 мечей, огромный радиус."] },
+    shield:  { n: 'Щит Вексилла', cd: 0,   d: 20, t: 'aura',   c: '#36f', r: 120, sRad: [1, 1.2, 1.2, 1.4, 1.4, 1.6, 1.8], sPush: [0, 0, 3, 3, 5, 5, 7], desc: ["Малое силовое поле.", "Увеличенный радиус.", "Поле отталкивает врагов.", "Большой радиус.", "Больше урона.", "Сильное отталкивание.", "Максимальный размер и урон."] },
+    flamer:  { n: 'Огнемет',      cd: 0,   d: 15, t: 'aura',   c: '#f50', r: 100, sRad: [1, 1.2, 1.2, 1.4, 1.4, 1.6, 1.8], desc: ["Тонкая струя пламени.", "Широкий конус.", "Увеличенный радиус.", "Огненный шторм.", "Больше урона.", "Максимальный радиус.", "Испепеление (макс урон/радиус)."] },
+    smite:   { n: 'Кара Императора',cd: 1.0,d: 20, t: 'zap',   c: '#aaf', sCnt: [1, 2, 3, 3, 4, 5, 8], sChain: [0, 0, 0, 1, 1, 1, 1], desc: ["Молния в одного врага.", "Две молнии.", "Три молнии.", "Цепная молния (бьет около цели).", "Четыре молнии.", "Пять молний.", "Восемь мощных цепных молний."] },
+    turret:  { n: 'Сервочерепа',   cd: 4.0, d: 15, t: 'turret', c: '#888', sCnt: [1, 2, 2, 3, 3, 4, 5], sLife: [6, 6, 10, 10, 10, 10, 10], desc: ["1 череп.", "2 черепа.", "Увеличенное время жизни.", "3 черепа.", "Быстрая стрельба.", "4 черепа.", "5 черепов, шквальный огонь."] },
+    laser:   { n: 'Лазпушка',      cd: 0.1, d: 25, t: 'beam',   c: '#f00', sCnt: [1, 2, 2, 3, 3, 4, 5], sWidth: [15, 15, 30, 30, 50, 50, 80], desc: ["Тонкий луч.", "Два луча.", "Утолщенный луч.", "Три луча.", "Широкий луч.", "Четыре луча.", "Пять широких лучей."] },
+    plasma:  { n: 'Плазмаган',     cd: 0.3, d: 10, t: 'spiral', c: '#0ff', spd: 400, sCnt: [1, 2, 2, 3, 3, 4, 5], sSize: [4, 4, 4, 4, 6, 6, 8], sSpd: [1, 1, 1.5, 1.5, 1.5, 1.5, 1.5], desc: ["1 плазменный сгусток.", "2 сгустка по спирали.", "Быстрая стрельба.", "3 сгустка.", "Увеличенный размер.", "4 сгустка.", "5 огромных быстрых сгустков."] },
+    grav:    { n: 'Грав-Пушка',    cd: 0,   d: 10, t: 'pull',   c: '#66f', r: 120, sRad: [1, 1.2, 1.2, 1.4, 1.4, 1.6, 1.8], desc: ["Слабая гравитация.", "Сильная гравитация.", "Замедляет врагов.", "Огромная область притяжения.", "Больше урона.", "Максимальное замедление.", "Воронка смерти (макс параметры)."] }
+};
+
+const PASS = [
+    { n: 'Мощь Сервоприводов', d: '+15% Урон',       f: p => p.dmg += 0.15 },
+    { n: 'Ускоритель',         d: '+10% Скорость',    f: p => p.spd += 10 },
+    { n: 'Улучшенная Броня',   d: '+20 Макс HP',      f: p => { p.mhp += 20; p.hp += 20; } },
+    { n: 'Ремонтные Дроны',    d: '+1 HP/сек',        f: p => p.reg += 1 },
+    { n: 'Церамитная Плита',   d: '-3 Вход. Урон',    f: p => p.armor += 3 },
+    { n: 'Мат. Сенсоры',       d: '+10% Крит. Шанс',  f: p => p.luck += 0.1 },
+    { n: 'Спешка',             d: '-10% Перезарядка',  f: p => p.cdh += 0.1 },
+    { n: 'Расширитель',        d: '+15% Радиус умений',f: p => p.area += 0.15 },
+    { n: 'Нартециум',          d: 'Лечит за убийство', f: p => p.vamp += 0.05 },
+    { n: 'Гироскопы',          d: '10% Уклонение',     f: p => p.dodge += 0.1 },
+    { n: 'Бронебойные',        d: '+1 Пробитие снарядов', f: p => p.pierce++ },
+    { n: 'Магнитный Ловец',    d: '+30 Радиус лута',  f: p => p.mag += 30 }
+];
+
+const ENEM = [
+    { id: 'nurgle', n: 'Нурглит',      c: '#556b2f', r: 25, hp: 200, s: 30,  d: 10, xp: 5,  sw: ["Гниение!", "Фуу!", "Нургл питает!"] },
+    { id: 'khorne', n: 'Кхорнит',      c: '#8b0000', r: 14, hp: 50,  s: 130, d: 18, xp: 4,  sw: ["Кровь!", "Черепа!", "Хаос!"] },
+    { id: 'slaanesh', n: 'Слаанешит',  c: '#da70d6', r: 12, hp: 40,  s: 80,  d: 15, xp: 4,  sw: ["Боль...", "Экстаз!", "Слаанеш!"] },
+    { id: 'tzeentch', n: 'Тзинчит',    c: '#0000aa', r: 10, hp: 30,  s: 60,  d: 5,  xp: 3,  sw: ["Изменение!", "Варп!", "Тзинч!"] },
+    { id: 'black', n: 'Черный Легион.', c: '#1a1a1a', r: 16, hp: 100, s: 70,  d: 20, xp: 6,  sw: ["Абаддон!", "Ересь!", "Легион!"] }
+];
+
+let state = 'menu';
+let P, enemies, projs, gems, turrets, mines, ftexts;
+let time, kills, diff, spawnT, frame;
+
+function showScreen(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    if (id) document.getElementById(id).classList.add('active');
+}
+
+function startGame(cls) {
+    const c = CLS[cls];
+    P = {
+        x: W/2, y: H/2, r: 18, col: c.col,
+        hp: c.hp, mhp: c.hp, spd: c.spd, dmg: c.dmg,
+        inv: 0, reg: 0, armor: 0, luck: 0.05, cdh: 0, area: 1,
+        vamp: 0, dodge: 0, pierce: 0, mag: 60,
+        xp: 0, lvl: 1, xn: 10,
+        wpns: [{ id: c.w, lv: 1, t: 0 }]
+    };
+    enemies = []; projs = []; gems = []; turrets = []; mines = []; ftexts = [];
+    time = 0; kills = 0; diff = 1; spawnT = 0; frame = 0;
+    state = 'play';
+    showScreen(null);
+    updateUI();
+}
+
+let keys = {};
+window.onkeydown = e => keys[e.code] = true;
+window.onkeyup = e => keys[e.code] = false;
+
+function loop(ts) {
+    requestAnimationFrame(loop);
+    if (state !== 'play') { render(); return; }
+    
+    let dt = Math.min((ts - (loop.last || ts)) / 1000, 0.05);
+    loop.last = ts;
+    frame++;
+
+    time += dt;
+    diff = 1 + Math.floor(time / 30);
+    spawnT -= dt;
+    if (spawnT <= 0) { spawnE(); spawnT = Math.max(0.2, 1.5 - diff * 0.08); }
+
+    updateP(dt);
+    updateW(dt);
+    updateMines(dt);
+    updateE(dt);
+    updateProjs(dt);
+    updateTurrets(dt);
+    updateGems(dt);
+    updateFTexts(dt);
+
+    if (P.reg > 0) P.hp = Math.min(P.mhp, P.hp + P.reg * dt);
+
+    enemies = enemies.filter(e => !e.dead);
+    projs = projs.filter(p => !p.dead);
+    gems = gems.filter(g => !g.dead);
+    turrets = turrets.filter(t => !t.dead);
+    mines = mines.filter(m => !m.dead);
+
+    updateUI();
+    render();
+}
+
+function updateP(dt) {
+    let dx = 0, dy = 0;
+    if (keys['KeyW'] || keys['ArrowUp']) dy = -1;
+    if (keys['KeyS'] || keys['ArrowDown']) dy = 1;
+    if (keys['KeyA'] || keys['ArrowLeft']) dx = -1;
+    if (keys['KeyD'] || keys['ArrowRight']) dx = 1;
+    if (dx || dy) {
+        let l = Math.hypot(dx, dy);
+        P.x += (dx/l) * P.spd * dt;
+        P.y += (dy/l) * P.spd * dt;
+    }
+    P.x = Math.max(P.r, Math.min(W - P.r, P.x));
+    P.y = Math.max(P.r, Math.min(H - P.r, P.y));
+    if (P.inv > 0) P.inv -= dt;
+}
+
+function updateW(dt) {
+    P.wpns.forEach(w => {
+        w.t -= dt;
+        if (w.t <= 0) {
+            fire(w);
+            let cd = WEAP[w.id].cd;
+            if (w.id === 'bolter' && w.lv >= 3) cd *= 0.5; 
+            if (w.id === 'shotgun' && w.lv >= 3) cd *= 0.6;
+            w.t = cd * (1 - P.cdh);
+        }
+    });
+}
+
+function fire(w) {
+    const wd = WEAP[w.id];
+    const L = w.lv - 1; // Индекс массива
+    const baseDmg = wd.d * P.dmg * (1 + L * 0.3);
+    const spd = wd.spd || 400;
+
+    switch(wd.t) {
+        case 'aim': {
+            const cnt = wd.sCnt[L];
+            const isExpl = wd.sExpl[L] > 0;
+            const pierce = P.pierce + wd.sPierce[L];
+            const tgt = near(P.x, P.y);
+            if (!tgt && cnt === 1) return;
+            const baseA = tgt ? Math.atan2(tgt.y - P.y, tgt.x - P.x) : frame * 0.2;
+            for(let i = 0; i < cnt; i++) {
+                let a = baseA + (cnt > 1 ? (i - (cnt-1)/2) * 0.15 : 0);
+                addP(P.x, P.y, Math.cos(a)*spd, Math.sin(a)*spd, baseDmg, wd.c, pierce, isExpl ? {r: 5, expl: wd.sExpl[L]} : {r: 4});
+            }
+            break;
+        }
+        case 'spread': {
+            const cnt = wd.sCnt[L];
+            const pierce = P.pierce + wd.sPierce[L];
+            const tgt = near(P.x, P.y);
+            if (!tgt) return;
+            const ba = Math.atan2(tgt.y - P.y, tgt.x - P.x);
+            for(let i=0; i<cnt; i++) {
+                let a = ba + (i - (cnt-1)/2) * 0.15;
+                addP(P.x, P.y, Math.cos(a)*spd, Math.sin(a)*spd, baseDmg, wd.c, pierce, {r: 4});
+            }
+            break;
+        }
+        case 'rocket': {
+            const cnt = wd.sCnt[L];
+            const explR = wd.sExpl[L];
+            const spdMul = wd.sSpd[L];
+            const tgt = near(P.x, P.y);
+            const ba = tgt ? Math.atan2(tgt.y-P.y, tgt.x-P.x) : 0;
+            for(let i=0; i<cnt; i++) {
+                let a = ba + (cnt > 1 ? (i - (cnt-1)/2) * 0.2 : 0);
+                addP(P.x, P.y, Math.cos(a)*spd*spdMul, Math.sin(a)*spd*spdMul, baseDmg, wd.c, P.pierce, {r: 8, expl: explR});
+            }
+            break;
+        }
+        case 'mine': {
+            const cnt = wd.sCnt[L];
+            const rad = wd.sRad[L] * P.area;
+            const dmgMult = wd.sDmg[L];
+            for(let i=0; i<cnt; i++) {
+                mines.push({x: P.x + (i - Math.floor(cnt/2))*20, y: P.y, t: 1.5, r: rad, dmg: baseDmg * dmgMult, dead: false});
+            }
+            break;
+        }
+        case 'bounce': {
+            const cnt = wd.sCnt[L];
+            const bounces = wd.sBounce[L];
+            const tgt = near(P.x, P.y);
+            const a = tgt ? Math.atan2(tgt.y-P.y, tgt.x-P.x) : Math.random()*6.28;
+            for(let i=0; i<cnt; i++) {
+                addP(P.x, P.y, Math.cos(a)*spd, Math.sin(a)*spd, baseDmg, wd.c, 999, {bounce: bounces, r: 6});
+            }
+            break;
+        }
+        case 'boom': {
+            const cnt = wd.sCnt[L];
+            const explR = wd.sExpl[L];
+            const tgt = near(P.x, P.y);
+            const a = tgt ? Math.atan2(tgt.y-P.y, tgt.x-P.x) : 0;
+            for(let i=0; i<cnt; i++) {
+                addP(P.x, P.y, Math.cos(a)*200, Math.sin(a)*200, baseDmg, wd.c, 999, {boom: true, explR: explR, r: wd.r || 15});
+            }
+            break;
+        }
+        case 'spiral': {
+            const cnt = wd.sCnt[L];
+            const pr = wd.sSize[L];
+            const spMul = wd.sSpd[L];
+            for(let i=0; i<cnt; i++) {
+                let a = frame * 0.3 * spMul + (i * Math.PI * 2 / cnt);
+                addP(P.x, P.y, Math.cos(a)*spd*spMul, Math.sin(a)*spd*spMul, baseDmg, wd.c, P.pierce, {r: pr});
+            }
+            break;
+        }
+        case 'zap': {
+            const cnt = wd.sCnt[L];
+            const isChain = wd.sChain[L] === 1;
+            for(let i=0; i<cnt; i++) {
+                let tgt = enemies[Math.floor(Math.random()*enemies.length)];
+                if(tgt && !tgt.dead) {
+                    hurtE(tgt, baseDmg);
+                    if(isChain) {
+                        let nearTgt = near(tgt.x, tgt.y, tgt);
+                        if(nearTgt) hurtE(nearTgt, baseDmg * 0.5);
+                    }
+                }
+            }
+            break;
+        }
+        case 'turret': {
+            const cnt = wd.sCnt[L];
+            const life = wd.sLife[L];
+            for(let i=0; i<cnt; i++) {
+                turrets.push({x: P.x+Math.random()*60-30, y: P.y+Math.random()*60-30, life: life, t: 0, dead: false});
+            }
+            break;
+        }
+    }
+}
+
+function addP(x, y, vx, vy, dmg, col, pierce, extra={}) {
+    if(projs.length > 300) return;
+    projs.push({x, y, vx, vy, r: extra.r || 4, dmg, col, pierce, ...extra, dead: false});
+}
+
+function updateProjs(dt) {
+    projs.forEach(p => {
+        if(p.dead) return;
+        
+        if(p.boom) {
+            let d = Math.hypot(p.x - P.x, p.y - P.y);
+            if(d > 200) { let a = Math.atan2(P.y-p.y, P.x-p.x); p.vx = Math.cos(a)*400; p.vy = Math.sin(a)*400; }
+            else { p.dead = true; hurtAll(P.x, P.y, p.explR || 80, p.dmg); }
+        }
+
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+
+        if(p.x < -50 || p.x > W+50 || p.y < -50 || p.y > H+50) {
+            if(p.bounce && p.bounce > 0) {
+                if(p.x < -50 || p.x > W+50) p.vx *= -1;
+                if(p.y < -50 || p.y > H+50) p.vy *= -1;
+                p.x = Math.max(-40, Math.min(W+40, p.x));
+                p.y = Math.max(-40, Math.min(H+40, p.y));
+                p.bounce--;
+            } else p.dead = true;
+        }
+
+        if(!p.dead) {
+            for(let e of enemies) {
+                if(e.dead) continue;
+                if(Math.hypot(p.x-e.x, p.y-e.y) < p.r + e.r) {
+                    hurtE(e, p.dmg);
+                    if(p.expl) hurtAll(p.x, p.y, p.expl, p.dmg * 0.5);
+                    if(p.pierce > 0) p.pierce--;
+                    else p.dead = true;
+                    break;
+                }
+            }
+        }
+    });
+}
+
+function updateMines(dt) {
+    mines.forEach(m => {
+        if(m.dead) return;
+        m.t -= dt;
+        if(m.t <= 0) {
+            hurtAll(m.x, m.y, m.r, m.dmg);
+            m.dead = true;
+        }
+    });
+}
+
+function updateE(dt) {
+    enemies.forEach(e => {
+        if(e.dead) return;
+        
+        let dx = P.x - e.x, dy = P.y - e.y;
+        let moveX = e.id === 'tzeentch' ? (Math.sin(frame*0.1 + e.x)*100) : dx;
+        let moveY = e.id === 'tzeentch' ? (Math.cos(frame*0.1 + e.y)*100) : dy;
+        let moveD = Math.hypot(moveX, moveY);
+        
+        if(moveD > 0) { e.x += (moveX/moveD)*e.s*dt; e.y += (moveY/moveD)*e.s*dt; }
+
+        if(P.inv <= 0 && Math.hypot(P.x-e.x, P.y-e.y) < P.r + e.r) {
+            if(Math.random() < P.dodge) { addFT(P.x, P.y, "ГИРОСКОП", "#0f0"); }
+            else {
+                let dmg = Math.max(1, e.d - P.armor);
+                P.hp -= dmg; P.inv = 0.5;
+                addFT(P.x, P.y, `-${dmg}`, "#f00");
+                if(P.hp <= 0) die();
+            }
+        }
+
+        P.wpns.forEach(w => {
+            let wd = WEAP[w.id];
+            let L = w.lv - 1;
+            
+            if((wd.t === 'aura' || wd.t === 'pull') && Math.hypot(P.x-e.x, P.y-e.y) < wd.r * P.area * wd.sRad[L]) {
+                let dmg = wd.d * P.dmg * (1 + L * 0.3) * dt * (L >= 4 ? 2 : 1);
+                hurtE(e, dmg);
+                if(wd.t === 'pull') { 
+                    let pullStr = L >= 1 ? 3 : 1;
+                    e.x += (P.x-e.x)*pullStr*dt; e.y += (P.y-e.y)*pullStr*dt; 
+                    if(L >= 2) e.s *= 0.99;
+                }
+                if(w.id === 'shield' && wd.sPush[L] > 0) { 
+                    e.x += (e.x-P.x)*wd.sPush[L]*dt; e.y += (e.y-P.y)*wd.sPush[L]*dt; 
+                }
+            }
+            else if(wd.t === 'orbit') {
+                let cnt = wd.sCnt[L];
+                let rad = wd.r * P.area * wd.sRad[L];
+                let spdMul = wd.sSpd[L];
+                for(let i=0; i<cnt; i++) {
+                    let a = frame*0.08*spdMul + (i*Math.PI*2/cnt);
+                    let ox = P.x + Math.cos(a)*rad, oy = P.y + Math.sin(a)*rad;
+                    if(Math.hypot(e.x-ox, e.y-oy) < 30) hurtE(e, wd.d * P.dmg * (1 + L*0.2) * dt * 10);
+                }
+            }
+            else if(wd.t === 'beam') {
+                let cnt = wd.sCnt[L];
+                let width = wd.sWidth[L];
+                for(let i=0; i<cnt; i++) {
+                    let tgt = near(P.x, P.y);
+                    if(tgt) {
+                        let a = Math.atan2(tgt.y-P.y, tgt.x-P.x) + (cnt > 1 ? (i - (cnt-1)/2)*0.2 : 0);
+                        let ex = e.x-P.x, ey = e.y-P.y;
+                        let dot = ex*Math.cos(a) + ey*Math.sin(a);
+                        if(dot > 0 && dot < 1000) {
+                            let cx = P.x + Math.cos(a)*dot, cy = P.y + Math.sin(a)*dot;
+                            if(Math.hypot(e.x-cx, e.y-cy) < width) hurtE(e, wd.d * P.dmg * (1 + L*0.2) * dt);
+                        }
+                    }
+                }
+            }
+        });
+    });
+}
+
+function updateTurrets(dt) {
+    turrets.forEach(t => {
+        if(t.dead) return;
+        t.life -= dt; t.t -= dt;
+        if(t.life <= 0) { t.dead = true; return; }
+        let fireRate = (t.life < 3 && P.wpns.some(w => w.id === 'turret' && w.lv >= 5)) ? 0.2 : 0.5;
+        if(t.t <= 0) {
+            let tgt = near(t.x, t.y);
+            if(tgt) {
+                let a = Math.atan2(tgt.y-t.y, tgt.x-t.x);
+                addP(t.x, t.y, Math.cos(a)*300, Math.sin(a)*300, 15 * P.dmg, "#888", P.pierce, {r: 4});
+            }
+            t.t = fireRate;
+        }
+    });
+}
+
+function updateGems(dt) {
+    gems.forEach(g => {
+        if(g.dead) return;
+        let d = Math.hypot(P.x-g.x, P.y-g.y);
+        if(d < P.mag) { g.x += (P.x-g.x)*10*dt; g.y += (P.y-g.y)*10*dt; }
+        if(d < P.r) { g.dead = true; addXP(g.v); }
+    });
+}
+
+function updateFTexts(dt) {
+    ftexts.forEach(f => { f.life -= dt; f.y -= 40*dt; });
+    ftexts = ftexts.filter(f => f.life > 0);
+}
+
+function hurtE(e, dmg) {
+    if(e.dead) return;
+    if(e.id === 'slaanesh' && Math.random() < 0.4) {
+        addFT(e.x, e.y - e.r - 10, "Уклон.", "#f0f");
+        return;
+    }
+
+    if(Math.random() < P.luck) { dmg *= 1.5; addFT(e.x, e.y, Math.floor(dmg)+"!", "#ff0"); }
+    else addFT(e.x, e.y, Math.floor(dmg), "#fff");
+    
+    e.hp -= dmg;
+    if(P.vamp > 0) P.hp = Math.min(P.mhp, P.hp + dmg * P.vamp);
+    
+    if(e.hp <= 0) {
+        if(e.id === 'black' && !e.revived) {
+            e.hp = e.mhp * 0.5; e.revived = true;
+            addFT(e.x, e.y, "Благословение Хаоса!", "#ffd700");
+            return;
+        }
+
+        e.dead = true; kills++;
+        
+        if(e.id === 'tzeentch') {
+            if(Math.hypot(P.x-e.x, P.y-e.y) < 80) {
+                let warpDmg = 15 * (1 + diff * 0.1);
+                P.hp -= warpDmg;
+                addFT(P.x, P.y, `-${warpDmg} Варп!`, "#a0f");
+                if(P.hp <= 0) die();
+            }
+        }
+
+        let v = Math.ceil(e.xp * (1 + P.luck));
+        for(let i=0; i<v; i++) gems.push({x: e.x+Math.random()*20-10, y: e.y+Math.random()*20-10, v: 1, dead: false});
+    }
+}
+
+function hurtAll(x, y, r, dmg) {
+    enemies.forEach(e => { if(!e.dead && Math.hypot(x-e.x, y-e.y) < r) hurtE(e, dmg); });
+}
+
+function spawnE() {
+    if(enemies.length > 150) return;
+    let t = ENEM[Math.floor(Math.random()*ENEM.length)];
+    let side = Math.floor(Math.random()*4);
+    let x = side===0 ? -20 : side===1 ? W+20 : Math.random()*W;
+    let y = side===2 ? -20 : side===3 ? H+20 : Math.random()*H;
+    let hpM = 1 + diff * 0.2;
+    let isElite = Math.random() < 0.05 * diff;
+    let statsMult = isElite ? 2 : 1;
+
+    enemies.push({
+        x, y, r: t.r * (isElite ? 1.2 : 1), s: t.s, d: t.d * statsMult, c: t.c, n: t.n, id: t.id,
+        hp: t.hp * hpM * statsMult, mhp: t.hp * hpM * statsMult,
+        xp: t.xp * statsMult, dead: false, isElite: isElite, revived: false,
+        sw: t.sw[Math.floor(Math.random()*t.sw.length)],
+        swT: 2 + Math.random()*2
+    });
+}
+
+function near(x, y, exclude) {
+    let best = null, bd = Infinity;
+    enemies.forEach(e => { 
+        if(e.dead || e === exclude) return; 
+        let d = Math.hypot(x-e.x, y-e.y); 
+        if(d<bd) { bd=d; best=e; } 
+    });
+    return best;
+}
+
+function addXP(v) {
+    P.xp += v;
+    if(P.xp >= P.xn) {
+        P.xp -= P.xn; P.lvl++;
+        P.xn = Math.floor(P.xn * 1.5625); 
+        state = 'upg';
+        genUpgs();
+        showScreen('scr-upg');
+    }
+}
+
+function addFT(x, y, txt, col) { if(ftexts.length < 50) ftexts.push({x, y, txt, col, life: 0.8}); }
+
+function die() { state = 'dead'; document.getElementById('d-time').innerText = fmtT(time); document.getElementById('d-kills').innerText = kills; showScreen('scr-dead'); }
+
+function updateUI() {
+    document.getElementById('ui-time').innerText = fmtT(time);
+    document.getElementById('ui-kills').innerText = kills;
+    document.getElementById('ui-hp').style.width = Math.max(0, (P.hp/P.mhp)*100) + '%';
+    document.getElementById('ui-xp').style.width = (P.xp/P.xn)*100 + '%';
+    document.getElementById('ui-lvl').innerText = `Ранг ${P.lvl}`;
+}
+
+function fmtT(s) { return `${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`; }
+
+function genUpgs() {
+    let list = document.getElementById('upg-list');
+    list.innerHTML = '';
+    let opts = [];
+
+    P.wpns.forEach(w => {
+        if(w.lv < 7) {
+            let wd = WEAP[w.id];
+            opts.push({ n: `${wd.n} (Ур.${w.lv+1})`, d: wd.desc[w.lv], f: () => w.lv++ });
+        }
+    });
+
+    if(P.lvl % 3 === 0) {
+        let own = P.wpns.map(w => w.id);
+        let avail = Object.keys(WEAP).filter(id => !own.includes(id));
+        avail.sort(() => Math.random() - 0.5).slice(0, 2).forEach(id => {
+            opts.push({ n: WEAP[id].n, d: "Новое оружие дредноута.", f: () => P.wpns.push({id, lv: 1, t: 0}) });
+        });
+    }
+
+    [...PASS].sort(() => Math.random() - 0.5).slice(0, 3).forEach(p => {
+        opts.push({ n: p.n, d: p.d, f: () => p.f(P) });
+    });
+
+    opts.sort(() => Math.random() - 0.5).slice(0, 3).forEach(o => {
+        let div = document.createElement('div');
+        div.className = 'upg';
+        div.innerHTML = `<b>${o.n}</b><div>${o.d}</div>`;
+        div.onclick = () => { o.f(); state = 'play'; showScreen(null); };
+        list.appendChild(div);
+    });
+}
+
+function render() {
+    X.fillStyle = '#050505';
+    X.fillRect(0, 0, W, H);
+    
+    X.strokeStyle = '#111'; X.lineWidth = 1;
+    for(let i=0; i<W; i+=80) { X.beginPath(); X.moveTo(i,0); X.lineTo(i,H); X.stroke(); }
+    for(let i=0; i<H; i+=80) { X.beginPath(); X.moveTo(0,i); X.lineTo(W,i); X.stroke(); }
+
+    if(!P) return;
+
+    P.wpns.forEach(w => {
+        let wd = WEAP[w.id];
+        let L = w.lv - 1;
+        if((wd.t === 'aura' || wd.t === 'pull') && wd.sRad) {
+            X.beginPath(); X.arc(P.x, P.y, wd.r * P.area * wd.sRad[L], 0, Math.PI*2);
+            X.fillStyle = wd.t === 'pull' ? 'rgba(100,100,255,0.1)' : 'rgba(255,100,0,0.1)';
+            X.fill(); X.strokeStyle = wd.c; X.lineWidth = 1; X.stroke();
+        }
+    });
+
+    mines.forEach(m => {
+        if(m.dead) return;
+        let blink = m.t < 0.5 && Math.floor(m.t*10)%2;
+        X.fillStyle = blink ? '#f00' : '#556b2f';
+        X.beginPath(); X.arc(m.x, m.y, 5, 0, Math.PI*2); X.fill();
+        X.strokeStyle = '#fff'; X.stroke();
+    });
+
+    X.fillStyle = '#d4af37';
+    gems.forEach(g => { if(!g.dead) { X.fillRect(g.x-2, g.y-2, 4, 4); } });
+
+    enemies.forEach(e => {
+        if(e.dead) return;
+        X.fillStyle = '#000'; X.beginPath(); X.arc(e.x+2, e.y+2, e.r, 0, Math.PI*2); X.fill();
+        X.fillStyle = e.c; X.beginPath(); X.arc(e.x, e.y, e.r, 0, Math.PI*2); X.fill();
+        
+        if(e.hp < e.mhp) {
+            X.fillStyle = 'rgba(255, 0, 0, 0.6)';
+            X.beginPath(); X.arc(e.x, e.y, e.r * (e.hp/e.mhp), 0, Math.PI*2); X.fill();
+        }
+
+        if(e.isElite) {
+            X.strokeStyle = '#ffd700'; X.lineWidth = 3;
+            X.beginPath(); X.arc(e.x, e.y, e.r + 4, 0, Math.PI*2); X.stroke();
+        }
+
+        if(e.swT > 0) {
+            e.swT -= 0.016;
+            X.font = '12px Teko'; X.textAlign = 'center';
+            X.fillStyle = '#fff'; X.fillText(e.sw, e.x, e.y - e.r - 8);
+        }
+    });
+
+    projs.forEach(p => {
+        if(p.dead) return;
+        X.fillStyle = p.col; 
+        if(p.boom) { X.fillRect(p.x-p.r, p.y-p.r, p.r*2, p.r*2); } // Молот рисуем квадратом
+        else { X.beginPath(); X.arc(p.x, p.y, p.r, 0, Math.PI*2); X.fill(); }
+    });
+
+    P.wpns.forEach(w => {
+        let wd = WEAP[w.id];
+        let L = w.lv - 1;
+        if(wd.t === 'beam' && wd.sCnt) {
+            let cnt = wd.sCnt[L];
+            let tgt = near(P.x, P.y);
+            if(tgt) {
+                let baseA = Math.atan2(tgt.y-P.y, tgt.x-P.x);
+                X.strokeStyle = '#f00'; X.lineWidth = 2;
+                for(let i=0; i<cnt; i++) {
+                    let a = baseA + (cnt > 1 ? (i - (cnt-1)/2)*0.2 : 0);
+                    X.beginPath(); X.moveTo(P.x, P.y); X.lineTo(P.x+Math.cos(a)*1000, P.y+Math.sin(a)*1000); X.stroke();
+                }
+            }
+        }
+        else if(wd.t === 'orbit' && wd.sCnt) {
+            let cnt = wd.sCnt[L];
+            let rad = wd.r * P.area * wd.sRad[L];
+            let spdMul = wd.sSpd[L];
+            X.fillStyle = '#aaa';
+            for(let i=0; i<cnt; i++) {
+                let a = frame*0.08*spdMul + (i*Math.PI*2/cnt);
+                X.save(); X.translate(P.x+Math.cos(a)*rad, P.y+Math.sin(a)*rad); X.rotate(a);
+                X.fillRect(-12, -2, 24, 4);
+                X.restore();
+            }
+        }
+    });
+
+    X.fillStyle = '#666';
+    turrets.forEach(t => { if(!t.dead) X.fillRect(t.x-5, t.y-5, 10, 10); });
+
+    let fl = P.inv > 0 && Math.floor(P.inv*10)%2;
+    let col = fl ? '#fff' : P.col;
+    
+    X.fillStyle = '#222'; X.fillRect(P.x - 24, P.y + 12, 48, 10);
+    X.fillStyle = col; X.fillRect(P.x - 20, P.y - 16, 40, 30);
+    X.strokeStyle = '#d4af37'; X.lineWidth = 2; X.strokeRect(P.x - 20, P.y - 16, 40, 30);
+    
+    X.fillStyle = '#333'; 
+    X.fillRect(P.x - 32, P.y - 8, 14, 16);
+    X.fillRect(P.x + 18, P.y - 8, 14, 16);
+    X.strokeStyle = '#d4af37'; X.lineWidth = 1;
+    X.strokeRect(P.x - 32, P.y - 8, 14, 16);
+    X.strokeRect(P.x + 18, P.y - 8, 14, 16);
+    
+    X.fillStyle = '#f00'; X.shadowBlur = 8; X.shadowColor = '#f00';
+    X.fillRect(P.x - 10, P.y - 12, 20, 4);
+    X.shadowBlur = 0;
+
+    X.font = '14px Teko'; X.textAlign = 'center';
+    ftexts.forEach(f => {
+        X.globalAlpha = f.life;
+        X.fillStyle = f.col;
+        X.fillText(f.txt, f.x, f.y);
+    });
+    X.globalAlpha = 1;
+}
+
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
