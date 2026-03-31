@@ -24,7 +24,10 @@ body {
     align-items: center;
     justify-content: center;
     user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
     letter-spacing: 1px;
+    touch-action: none;
 }
 
 #game-container {
@@ -186,6 +189,10 @@ h2 {
 .classes {
     display: flex;
     gap: 15px;
+    max-height: 70vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 10px;
 }
 
 .class-card, .cls {
@@ -351,31 +358,285 @@ h2 {
     50% { transform: scale(1.05); }
 }
 
-/* Show on mobile */
-@media (max-width: 768px) {
+/* Mobile - Vertical (Portrait) */
+@media (max-width: 768px) and (orientation: portrait) {
     #joystick-zone, #ult-button {
         display: block;
     }
-    
+
     .top-bar {
         padding: 5px;
     }
-    
+
     .stat-box {
         padding: 3px 10px;
     }
-    
+
     .stat-label {
         font-size: 10px;
     }
-    
+
     .stat-value {
         font-size: 16px;
     }
-    
+
     .bottom-bar {
         width: 250px;
         bottom: 180px;
+    }
+
+    /* Меню выбора класса - вертикальный скролл */
+    .classes {
+        flex-direction: column;
+        overflow-y: auto;
+        max-height: 60vh;
+        padding: 10px;
+    }
+
+    .class-card {
+        width: 280px;
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        padding: 10px 15px;
+    }
+
+    .class-icon {
+        width: 60px !important;
+        height: 48px !important;
+        margin: 0;
+    }
+
+    .class-name {
+        font-size: 14px;
+        margin: 0;
+    }
+
+    .class-stat {
+        font-size: 12px;
+    }
+
+    /* Улучшения - меньше карточки */
+    .upgrade-card {
+        width: 200px;
+        padding: 10px;
+    }
+
+    .upgrade-icon {
+        font-size: 24px;
+    }
+
+    .upgrade-name {
+        font-size: 14px;
+    }
+
+    .upgrade-desc {
+        font-size: 12px;
+    }
+}
+
+/* Mobile - Horizontal (Landscape) */
+@media (max-width: 768px) and (orientation: landscape) {
+    #joystick-zone, #ult-button {
+        display: block;
+    }
+
+    /* Уменьшаем джойстик и кнопку ульты */
+    #joystick-zone {
+        width: 120px;
+        height: 120px;
+        bottom: 20px;
+        left: 10px;
+    }
+
+    #joystick-stick {
+        width: 40px;
+        height: 40px;
+        left: 40px;
+        top: 40px;
+    }
+
+    #ult-button {
+        width: 60px;
+        height: 60px;
+        bottom: 30px;
+        right: 10px;
+        font-size: 20px;
+    }
+
+    /* Компактная верхняя панель */
+    .top-bar {
+        padding: 4px 8px;
+        gap: 10px;
+    }
+
+    .stat-box {
+        padding: 2px 8px;
+        min-width: 80px;
+    }
+
+    .stat-label {
+        font-size: 9px;
+        line-height: 1.1;
+    }
+
+    .stat-value {
+        font-size: 14px;
+    }
+
+    /* Компактная нижняя панель */
+    .bottom-bar {
+        position: absolute;
+        bottom: 10px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 280px;
+    }
+
+    .bar {
+        height: 10px;
+        margin-bottom: 2px;
+    }
+
+    .bar-text {
+        font-size: 9px;
+        line-height: 10px;
+    }
+
+    /* Killfeed меньше */
+    #kill-feed {
+        top: 40px;
+        right: 5px;
+        width: 150px;
+    }
+
+    .kill-msg {
+        font-size: 10px;
+        padding: 2px 6px;
+    }
+
+    /* Меню выбора класса - горизонтальный скролл */
+    .classes {
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 8px;
+        padding: 10px;
+        max-width: 95vw;
+    }
+
+    .class-card {
+        width: 140px;
+        padding: 8px;
+    }
+
+    .class-icon {
+        width: 50px !important;
+        height: 40px !important;
+    }
+
+    .class-name {
+        font-size: 12px;
+        margin-bottom: 3px;
+    }
+
+    .class-stat {
+        font-size: 10px;
+    }
+
+    /* Улучшения - компактные */
+    .upgrade-card {
+        width: 180px;
+        padding: 8px;
+    }
+
+    .upgrade-icon {
+        font-size: 20px;
+        margin-bottom: 3px;
+    }
+
+    .upgrade-name {
+        font-size: 13px;
+        margin-bottom: 3px;
+    }
+
+    .upgrade-desc {
+        font-size: 11px;
+        line-height: 1.1;
+    }
+
+    /* Заголовки меньше */
+    h1 {
+        font-size: 24px;
+        margin-bottom: 10px;
+    }
+
+    h2 {
+        font-size: 18px;
+        margin-bottom: 10px;
+    }
+
+    /* Кнопки */
+    button {
+        padding: 6px 20px;
+        font-size: 14px;
+        margin-top: 10px;
+    }
+
+    /* Game over stats */
+    .game-over-stats {
+        font-size: 12px;
+        padding: 0 20px;
+    }
+}
+
+/* Очень маленькие экраны (iPhone SE и подобные) */
+@media (max-height: 400px) and (orientation: landscape) {
+    .top-bar {
+        padding: 2px 5px;
+    }
+
+    .stat-label {
+        font-size: 8px;
+    }
+
+    .stat-value {
+        font-size: 12px;
+    }
+
+    .bottom-bar {
+        width: 240px;
+        bottom: 5px;
+    }
+
+    .bar {
+        height: 8px;
+        margin-bottom: 1px;
+    }
+
+    .bar-text {
+        font-size: 8px;
+        line-height: 8px;
+    }
+
+    #joystick-zone {
+        width: 100px;
+        height: 100px;
+        bottom: 10px;
+    }
+
+    #joystick-stick {
+        width: 35px;
+        height: 35px;
+        left: 32px;
+        top: 32px;
+    }
+
+    #ult-button {
+        width: 50px;
+        height: 50px;
+        bottom: 15px;
+        right: 5px;
+        font-size: 18px;
     }
 }
 
@@ -395,4 +656,34 @@ h2 {
 
 .game-over-stats span {
     color: #fff;
+}
+
+/* Pause screen buttons */
+#pause-screen button, #game-over-screen button {
+    min-width: 200px;
+}
+
+/* Предотвращение выделения текста на мобильных */
+.screen-overlay {
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+/* Адаптация кнопок паузы для мобильных */
+@media (max-width: 768px) and (orientation: landscape) {
+    #pause-screen h1 {
+        font-size: 20px;
+        margin-bottom: 8px;
+    }
+
+    #pause-screen div {
+        font-size: 11px;
+    }
+
+    #pause-screen button, #game-over-screen button {
+        min-width: 140px;
+        padding: 5px 15px;
+        font-size: 12px;
+        margin-top: 8px;
+    }
 }
