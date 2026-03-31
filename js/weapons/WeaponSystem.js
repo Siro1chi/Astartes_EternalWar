@@ -398,7 +398,7 @@ export class Weapon {
         const dmgMult = levels.sDmg ? levels.sDmg[L] : 1;
         const r = (data.radius || 100) * player.areaMult * (levels.sRad ? levels.sRad[L] : 1);
         // Урон в секунду
-        const dps = data.baseDmg * player.dmgMult * dmgMult;
+        const dps = data.baseDmg * player.dmgMult;
         // Урон за кадр (при 60 FPS)
         const dmgPerFrame = dps * dt;
         const push = levels.sPush ? levels.sPush[L] : 0;
