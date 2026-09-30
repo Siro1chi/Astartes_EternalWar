@@ -108,6 +108,9 @@ export function createProjectilePool() {
                 return this;
             },
             update: function(dt, player, enemies) {
+                const width = window.gameManager?.width || 800;
+                const height = window.gameManager?.height || 600;
+
                 // Движение
                 this.x += this.vx * dt;
                 this.y += this.vy * dt;
@@ -124,8 +127,6 @@ export function createProjectilePool() {
 
                 // Bounce (рикошет)
                 if (this.bounces > 0) {
-                    const width = window.gameManager?.width || 800;
-                    const height = window.gameManager?.height || 600;
                     if (this.x < 0 || this.x > width) this.vx *= -1;
                     if (this.y < 0 || this.y > height) this.vy *= -1;
                 }
@@ -193,8 +194,8 @@ export function createProjectilePool() {
         // Reset
         (obj) => {
             obj.markedForRemoval = false;
-            obj.x = 0; y = 0;
-            obj.vx = 0; vy = 0;
+            obj.x = 0; obj.y = 0;
+            obj.vx = 0; obj.vy = 0;
         },
         200 // Начальный размер
     );

@@ -1,0 +1,31 @@
+{
+  "root": true,
+  "languageOptions": {
+    "ecmaVersion": 2023,
+    "sourceType": "module",
+    "globals": {
+      "window": "readonly",
+      "document": "readonly",
+      "requestAnimationFrame": "readonly",
+      "performance": "readonly",
+      "setTimeout": "readonly",
+      "clearTimeout": "readonly",
+      "Math": "readonly",
+      "console": "readonly",
+      "navigator": "readonly",
+      "localStorage": "readonly"
+    }
+  },
+  "rules": {
+    "no-undef": "error",
+    "no-unused-vars": [
+      "warn",
+      {
+        "args": "none"
+      }
+    ],
+    "no-implicit-globals": "error",
+    "eqeqeq": "warn",
+    "prefer-const": "warn"
+  }
+}

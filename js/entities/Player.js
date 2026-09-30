@@ -46,6 +46,7 @@ export class Player {
         this.burnDmg = 0;
         this.thorns = 0;
         this.ultChargeRate = 1;
+        this.attackSpeedMult = 1; // Множитель скорости атаки (ульты/баффы)
 
         // Состояние
         this.invTime = 0;

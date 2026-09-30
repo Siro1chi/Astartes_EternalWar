@@ -1,0 +1,10 @@
+{
+  "name": "wh40k-eternal-war",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "npx serve .",
+    "lint": "npx eslint js"
+  }
+}
