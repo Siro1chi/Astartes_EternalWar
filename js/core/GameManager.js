@@ -12,7 +12,44 @@ import { MineSystem } from '../entities/Mine.js';
 import { InputHandler } from './InputHandler.js';
 import { formatTime, distSq } from './utils.js';
 import { CLASSES } from '../weapons/weaponsData.js';
-import { Pool, createProjectilePool, createParticlePool, createEnemyPool } from './Pool.js';
+
+// ============================================
+// XP-камень — один общий прототип вместо closures на каждый камень
+// ============================================
+class XPGem {
+    constructor(x, y, value) {
+        this.type = 'gem';
+        this.x = x;
+        this.y = y;
+        this.r = 4;
+        this.value = value;
+    }
+
+    update(dt, player) {
+        const dx = player.x - this.x;
+        const dy = player.y - this.y;
+        const dSq = dx * dx + dy * dy;
+        if (dSq < player.magnetRadius * player.magnetRadius) {
+            const d = Math.sqrt(dSq);
+            if (d > 0) {
+                this.x += (dx / d) * 600 * dt;
+                this.y += (dy / d) * 600 * dt;
+            }
+        }
+        if (dSq < (player.r + this.r) ** 2) {
+            player.addXP(this.value);
+            return true;
+        }
+        return false;
+    }
+
+    render(ctx) {
+        ctx.fillStyle = '#d4af37';
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
+        ctx.fill();
+    }
+}
 
 // ============================================
 // Класс GameManager
@@ -36,11 +73,6 @@ export class GameManager {
         this.mineSystem = new MineSystem();
         this.enemyFactory = new EnemyFactory();
         
-        // Пулы объектов
-        this.projectilePool = createProjectilePool();
-        this.particlePool = createParticlePool();
-        this.enemyPool = createEnemyPool();
-        
         this.player = null;
         this.enemies = [];
         this.projectiles = [];
@@ -55,6 +87,7 @@ export class GameManager {
         this.ultCharge = 0;
         
         this.ultTimers = [];
+        this.gameTimers = []; // Игровые таймеры (dt-based), работают корректно на паузе
         this.bossSpawned = false;
         this.lastBossTime = 0;
         
@@ -128,6 +161,7 @@ export class GameManager {
         this.ultCharge = 0;
         this.ultTimers.forEach(t => clearTimeout(t));
         this.ultTimers = [];
+        this.gameTimers = [];
         this.bossSpawned = false;
         this.lastBossTime = 0;
         
@@ -150,14 +184,31 @@ export class GameManager {
 
     // ==================== UPDATE ====================
 
+    // Таймер, привязанный к игровому времени (останавливается на паузе)
+    addGameTimer(fn, delayMs) {
+        this.gameTimers.push({ remaining: delayMs / 1000, fn });
+    }
+
+    updateGameTimers(dt) {
+        for (let i = this.gameTimers.length - 1; i >= 0; i--) {
+            const t = this.gameTimers[i];
+            t.remaining -= dt;
+            if (t.remaining <= 0) {
+                this.gameTimers.splice(i, 1);
+                t.fn();
+            }
+        }
+    }
+
     update(dt) {
         if (this.state !== 'play') return;
         
         this.frameCount++;
         this.gameTime += dt;
+        this.updateGameTimers(dt);
         
         // Спавн босса каждые 5 минут
-        const bossInterval = 300; // 5 минут в секундах
+        const bossInterval = CONFIG.bossInterval;
         if (this.gameTime > this.lastBossTime + bossInterval && !this.bossSpawned) {
             this.spawnBoss();
             this.bossSpawned = true;
@@ -253,9 +304,7 @@ export class GameManager {
             this.gameOver();
         }
         
-        if (this.player?.regen > 0) {
-            this.player.hp = Math.min(this.player.maxHp, this.player.hp + this.player.regen * dt);
-        }
+        // Регенерация обрабатывается в Player.update() — не дублируем здесь
 
         // Обновление эффектов ульты
         if (this.player?.ultEffectTimer > 0) {
@@ -286,7 +335,7 @@ export class GameManager {
         const effect = player.ultEffect;
         player.ultEffect = null;
         
-        // Сброс эффектов
+        // Сброс эффектов (в обратном порядке к применению в ультах)
         if (effect === 'haste') {
             player.speed /= 1.8;
             player.dmgMult /= 1.5;
@@ -297,7 +346,8 @@ export class GameManager {
         } else if (effect === 'heal') {
             player.regen -= 15;
         } else if (effect === 'stealth') {
-            player.invTime = 0;
+            // Инверсия к ultStealth: invTime += 5, а не = 0 — иначе сбрасывается и обычная i-frames
+            player.invTime = Math.max(0, player.invTime - 5);
         }
         
         this.addFloatingText(player.x, player.y, "ЭФФЕКТ УЛЬТЫ ЗАВЕРШЁН", '#888', 1.0);
@@ -332,6 +382,13 @@ export class GameManager {
         this.addKillFeed(`⚠ ${bossData.type} приближается!`);
     }
 
+    onBossDeath(boss) {
+        // Разрешаем спавн следующего босса через интервал
+        this.bossSpawned = false;
+        this.lastBossTime = this.gameTime;
+        this.addKillFeed(`☠ ${boss.type} повержен!`);
+    }
+
     // ==================== COMBAT ====================
 
     onEnemyDeath(enemy, player) {
@@ -348,38 +405,17 @@ export class GameManager {
             }
         }
         
+        // Объединяем XP в камни по 5 единиц — меньше сущностей при убийствах
         const xpVal = Math.ceil(enemy.xpValue * player.xpMult * (1 + player.luck));
-        for (let k = 0; k < xpVal; k++) {
-            this.projectiles.push({
-                type: 'gem',
-                x: enemy.x + (Math.random() - 0.5) * 20,
-                y: enemy.y + (Math.random() - 0.5) * 20,
-                r: 4,
-                value: 1,
-                update: function(dt, player) {
-                    const dx = player.x - this.x;
-                    const dy = player.y - this.y;
-                    const dSq = dx * dx + dy * dy;
-                    if (dSq < player.magnetRadius ** 2) {
-                        const d = Math.sqrt(dSq);
-                        if (d > 0) {
-                            this.x += (dx / d) * 600 * dt;
-                            this.y += (dy / d) * 600 * dt;
-                        }
-                    }
-                    if (dSq < (player.r + this.r) ** 2) {
-                        player.addXP(this.value);
-                        return true;
-                    }
-                    return false;
-                },
-                render: function(ctx) {
-                    ctx.fillStyle = '#d4af37';
-                    ctx.beginPath();
-                    ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
-                    ctx.fill();
-                }
-            });
+        let remaining = xpVal;
+        while (remaining > 0) {
+            const value = Math.min(5, remaining);
+            remaining -= value;
+            this.projectiles.push(new XPGem(
+                enemy.x + (Math.random() - 0.5) * 20,
+                enemy.y + (Math.random() - 0.5) * 20,
+                value
+            ));
         }
     }
 
@@ -439,7 +475,7 @@ export class GameManager {
         
         // Визуальный эффект
         for (let i = 0; i < 20; i++) {
-            setTimeout(() => {
+            this.addGameTimer(() => {
                 const angle = (i / 20) * Math.PI * 2;
                 const x = player.x + Math.cos(angle) * 60;
                 const y = player.y + Math.sin(angle) * 60;
@@ -459,7 +495,7 @@ export class GameManager {
         
         // Красная аура
         for (let i = 0; i < 30; i++) {
-            setTimeout(() => {
+            this.addGameTimer(() => {
                 const angle = Math.random() * Math.PI * 2;
                 const x = player.x + Math.cos(angle) * 50;
                 const y = player.y + Math.sin(angle) * 50;
@@ -545,7 +581,7 @@ export class GameManager {
         this.spawnParticle(player.x, player.y, 'ring', '#00ffff', 70);
         
         for (let i = 0; i < 25; i++) {
-            setTimeout(() => {
+            this.addGameTimer(() => {
                 const angle = Math.random() * Math.PI * 2;
                 const x = player.x + Math.cos(angle) * 60;
                 const y = player.y + Math.sin(angle) * 60;
@@ -583,7 +619,7 @@ export class GameManager {
         this.spawnParticle(player.x, player.y, 'ring', '#00ff00', 120);
         
         for (let i = 0; i < 20; i++) {
-            setTimeout(() => {
+            this.addGameTimer(() => {
                 const angle = (i / 20) * Math.PI * 2;
                 const x = player.x + Math.cos(angle) * 100;
                 const y = player.y + Math.sin(angle) * 100;
@@ -596,13 +632,13 @@ export class GameManager {
         // Невидимость 5 сек
         player.ultEffect = 'stealth';
         player.ultEffectTimer = 5;
-        player.invTime = 5; // Неуязвимость
+        player.invTime += 5; // Неуязвимость (инвертируется в endUltEffect)
         
         this.addFloatingText(player.x, player.y, "ПРИЗРАК", '#888', 2.0);
         
         // Исчезновение
         for (let i = 0; i < 15; i++) {
-            setTimeout(() => {
+            this.addGameTimer(() => {
                 const angle = Math.random() * Math.PI * 2;
                 const x = player.x + Math.cos(angle) * 40;
                 const y = player.y + Math.sin(angle) * 40;
@@ -642,9 +678,7 @@ export class GameManager {
     ultDefault() {
         // Стандартная ульта - урон по области
         for (let i = 0; i < 15; i++) {
-            const timer = setTimeout(() => {
-                if (this.state !== 'play') return;
-
+            this.addGameTimer(() => {
                 const x = Math.random() * this.width;
                 const y = Math.random() * this.height;
                 this.spawnParticle(x, y, 'ring', '#ff0000', 50);
@@ -656,8 +690,6 @@ export class GameManager {
                 }
                 this.spawnParticles(x, y, '#ff0000', 20);
             }, i * 80);
-            
-            this.ultTimers.push(timer);
         }
     }
 
@@ -749,23 +781,38 @@ export class GameManager {
 
     // ==================== UI ====================
 
+    cacheUIElements() {
+        // Кэшируем DOM-элементы — не ищем их каждый кадр
+        this.ui = {
+            time: document.getElementById('time-display'),
+            kills: document.getElementById('kill-display'),
+            health: document.getElementById('health-fill'),
+            xp: document.getElementById('xp-fill'),
+            level: document.getElementById('level-display'),
+            ult: document.getElementById('ult-fill'),
+            ultBtn: document.getElementById('ult-button'),
+        };
+    }
+
     updateUI() {
         if (!this.player) return;
+        if (!this.ui) this.cacheUIElements();
 
-        document.getElementById('time-display').textContent = formatTime(this.gameTime);
-        document.getElementById('kill-display').textContent = this.kills;
+        const ui = this.ui;
+        ui.time.textContent = formatTime(this.gameTime);
+        ui.kills.textContent = this.kills;
 
         const hpP = this.player.getHealthPercent() * 100;
-        document.getElementById('health-fill').style.width = `${hpP}%`;
+        ui.health.style.width = `${hpP}%`;
 
         const xpP = this.player.getXPPercent() * 100;
-        document.getElementById('xp-fill').style.width = `${xpP}%`;
-        document.getElementById('level-display').textContent = `Ранг ${this.player.level}`;
+        ui.xp.style.width = `${xpP}%`;
+        ui.level.textContent = `Ранг ${this.player.level}`;
 
-        document.getElementById('ult-fill').style.width = `${this.ultCharge}%`;
+        ui.ult.style.width = `${this.ultCharge}%`;
         
         // Визуальный индикатор готовой ульты
-        const ultBtn = document.getElementById('ult-button');
+        const ultBtn = ui.ultBtn;
         if (ultBtn) {
             if (this.ultCharge >= 100) {
                 ultBtn.classList.add('ready');
@@ -898,8 +945,6 @@ export class GameManager {
         document.querySelectorAll('.class-card').forEach(card => {
             card.addEventListener('click', () => {
                 const classType = card.getAttribute('data-class');
-                console.log('Selected class:', classType);
-                console.log('Available classes:', Object.keys(CLASSES));
                 this.startGame(classType);
             });
         });

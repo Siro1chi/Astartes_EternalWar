@@ -157,5 +157,6 @@ export const CONFIG = {
     maxFloatingTexts: 50,
     maxMines: 20,
     baseSpawnRate: 1.5,
-    invTime: 1.0
+    invTime: 1.0,
+    bossInterval: 300 // Интервал спавна боссов, сек
 };

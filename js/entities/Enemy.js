@@ -30,6 +30,7 @@ export class Enemy {
 
         // Флаги
         this.isVeteran = false;
+        this.isBoss = typeData.isBoss || false;
         this.isTank = typeData.isTank || false;
         this.canShoot = typeData.canShoot || false;
         this.shootCd = typeData.shootCd || 0;
@@ -115,6 +116,9 @@ export class Enemy {
 
     onDeath(player) {
         this.markedForRemoval = true;
+        if (this.isBoss) {
+            window.gameManager?.onBossDeath(this);
+        }
         window.gameManager?.onEnemyDeath(this, player);
     }
 
@@ -211,12 +215,10 @@ export class Enemy {
                 return;
             }
 
-            // Урон с учётом брони
-            const dmg = Math.max(1, this.baseDmg - player.armor);
-            player.takeDamage(dmg);
+            // Урон: броня вычитается один раз — в Player.takeDamage
+            player.takeDamage(this.baseDmg);
             
             window.gameManager?.spawnParticles(player.x, player.y, '#ff0000', 5);
-            window.gameManager?.addFloatingText(player.x, player.y, `-${dmg}`, '#ff0000', 0.5);
 
             // Шипы
             if (player.thorns > 0) {
